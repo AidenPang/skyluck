@@ -14,7 +14,7 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("車廠管理系統 v1.0")
-        self.geometry("900x600")
+        self.geometry("1280x720")
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
@@ -35,14 +35,18 @@ class App(ctk.CTk):
         self.btn_customers = ctk.CTkButton(self.sidebar_frame, text="🚗 客戶車輛", command=lambda: self.select_frame("customers"))
         self.btn_customers.grid(row=3, column=0, padx=20, pady=10)
 
+        self.btn_settings = ctk.CTkButton(self.sidebar_frame, text="⚙️ 系統設定", command=lambda: self.select_frame("settings"))
+        self.btn_settings.grid(row=4, column=0, padx=20, pady=10)
+
         # ==================== 右側分頁 ====================
         self.frames = {}
 
-        # 1. 儀表板分頁
+        # ==================== 1. 儀表板分頁 ====================
         self.frames["dashboard"] = ctk.CTkFrame(self, corner_radius=10)
         ctk.CTkLabel(self.frames["dashboard"], text="這裡是儀表板總覽", font=ctk.CTkFont(size=24)).pack(pady=50)
+        # ======================================================
         
-        # 2. 維修工單分頁
+        # ==================== 2. 維修工單分頁 ====================
         self.frames["orders"] = ctk.CTkFrame(self, corner_radius=10)
         ctk.CTkLabel(self.frames["orders"], text="📝 維修工單系統", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(20, 10))
         
@@ -50,7 +54,7 @@ class App(ctk.CTk):
         self.btn_open_order = ctk.CTkButton(self.frames["orders"], text="➕ 新增維修工單", font=ctk.CTkFont(weight="bold"), fg_color="#27AE60", hover_color="#2ECC71", height=40, command=self.open_order_window)
         self.btn_open_order.pack(pady=10)
 
-        # ================= 📦 下半區：歷史紀錄 (維持原本的不要動) =================
+        # ----------- 歷史紀錄 -----------
         ctk.CTkFrame(self.frames["orders"], height=2, fg_color="gray").pack(fill="x", padx=20, pady=10)
 
         search_frame = ctk.CTkFrame(self.frames["orders"], fg_color="transparent")
@@ -69,10 +73,8 @@ class App(ctk.CTk):
         self.table_frame_order.pack(fill="both", expand=True, padx=20, pady=(5, 20))
         # ======================================================
         
-
-        # 3. 客戶與車輛管理分頁
+        # ==================== 3. 客戶與車輛管理分頁 ====================
         self.frames["customers"] = ctk.CTkFrame(self, corner_radius=10)
-        # ==================== 客戶與車輛管理分頁 ====================
         # --- 上半部：輸入表單 ---
         ctk.CTkLabel(self.frames["customers"], text="🚗 客戶與車輛登錄", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(20, 10))
 
@@ -103,7 +105,7 @@ class App(ctk.CTk):
         # --- 分隔線 ---
         ctk.CTkFrame(self.frames["customers"], height=2, fg_color="gray").pack(fill="x", padx=20, pady=5)
         
-        # --- 下半部：資料列表區塊 (🛠️ 本次新增) ---
+        # --- 下半部：資料列表區塊 ---
         # 客戶搜尋工具列
         search_frame_c = ctk.CTkFrame(self.frames["customers"], fg_color="transparent")
         search_frame_c.pack(fill="x", padx=20, pady=5)
@@ -128,8 +130,37 @@ class App(ctk.CTk):
         self.refresh_vehicle_list()
         # ======================================================
 
+        # ==================== 4. 系統設定分頁 (價目表管理) ====================
+        self.frames["settings"] = ctk.CTkFrame(self, corner_radius=10)
+        ctk.CTkLabel(self.frames["settings"], text="⚙️ 系統設定 - 價目表主檔管理", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(20, 10))
+
+        # --- 📦 上半區：新增維修項目 ---
+        add_service_frame = ctk.CTkFrame(self.frames["settings"])
+        add_service_frame.pack(fill="x", padx=20, pady=10)
+
+        self.entry_service_name = ctk.CTkEntry(add_service_frame, placeholder_text="維修項目名稱 (例: 變速箱油)", width=200)
+        self.entry_service_name.pack(side="left", padx=10, pady=15)
+
+        self.entry_service_price = ctk.CTkEntry(add_service_frame, placeholder_text="預設單價 ($)", width=100)
+        self.entry_service_price.pack(side="left", padx=10, pady=15)
+
+        self.btn_add_service = ctk.CTkButton(add_service_frame, text="➕ 新增項目", fg_color="#2980B9", command=self.add_service_action)
+        self.btn_add_service.pack(side="left", padx=10, pady=15)
+
+        self.lbl_msg_service = ctk.CTkLabel(add_service_frame, text="")
+        self.lbl_msg_service.pack(side="left", padx=10, pady=15)
+
+        # 一條優雅的分隔線
+        ctk.CTkFrame(self.frames["settings"], height=2, fg_color="gray").pack(fill="x", padx=20, pady=10)
+        ctk.CTkLabel(self.frames["settings"], text="📋 現有價目表列表", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=20)
+
+        # --- 📦 下半區：價目表列表 (可滾動) ---
+        self.table_frame_services = ctk.CTkScrollableFrame(self.frames["settings"])
+        self.table_frame_services.pack(fill="both", expand=True, padx=20, pady=(5, 20))
+        # ======================================================
+
         # 預設啟動畫面切到工單頁
-        self.select_frame("customers") 
+        self.select_frame("dashboard") 
 
     # ==================== 邏輯功能區 ====================
     def select_frame(self, name):
@@ -141,6 +172,10 @@ class App(ctk.CTk):
         # 🧑‍🏫 重點：當切換到工單頁面時，自動更新車牌的下拉選單
         if name == "orders":
             self.refresh_order_list()
+        elif name == "customers":
+            self.refresh_vehicle_list()
+        elif name == "settings":
+            self.refresh_services_list()
 
     def open_order_window(self):
         """開啟完整的『新增工單』彈出視窗"""
@@ -178,6 +213,9 @@ class App(ctk.CTk):
         self.entry_item_name.grid(row=0, column=0, padx=10, pady=10)
         self.entry_item_qty = ctk.CTkEntry(item_frame, placeholder_text="數量", width=60)
         self.entry_item_qty.grid(row=0, column=1, padx=10, pady=10)
+        self.combo_item_unit = ctk.CTkComboBox(item_frame, values=["pc", "L", "瓶", "條", "set", "次"], width=80)
+        self.combo_item_unit.grid(row=0, column=2, padx=10, pady=10)
+        self.combo_item_unit.set("pc")
         self.entry_item_price = ctk.CTkEntry(item_frame, placeholder_text="單價", width=80)
         self.entry_item_price.grid(row=0, column=2, padx=10, pady=10)
         
@@ -344,7 +382,7 @@ class App(ctk.CTk):
             return
 
         # 把項目塞進暫存清單
-        item_data = {"name": name, "qty": int(qty), "price": int(price)}
+        item_data = {"name": name, "qty": int(qty), "unit": unit, "price": int(price)}
         self.current_order_items.append(item_data)
 
         # 清空輸入框
@@ -354,7 +392,7 @@ class App(ctk.CTk):
 
         # 顯示在購物車畫面上
         subtotal = item_data["qty"] * item_data["price"]
-        ctk.CTkLabel(self.cart_frame, text=f"✅ {name} x{qty} | 單價: ${price} | 小計: ${subtotal}").pack(anchor="w", padx=10, pady=2)
+        ctk.CTkLabel(self.cart_frame, text=f"✅ {name} x{qty}{unit} | 單價: ${price} | 小計: ${subtotal}").pack(anchor="w", padx=10, pady=2)
         self.lbl_msg_order.configure(text="")
 
     def save_order(self):
@@ -410,7 +448,59 @@ class App(ctk.CTk):
             for col_idx, value in enumerate(order):
                 display_text = f"${value}" if col_idx == 4 else str(value)
                 ctk.CTkLabel(self.table_frame_order, text=display_text).grid(row=row_idx, column=col_idx, sticky="w", padx=15, pady=5)
-    # -------------------
+    # ==========================================
+    # ⚙️ Phase 3：價目表管理邏輯
+    # ==========================================
+    def add_service_action(self):
+        """按下新增維修項目"""
+        name = self.entry_service_name.get().strip()
+        price = self.entry_service_price.get().strip()
+
+        if not name or not price.isdigit():
+            self.lbl_msg_service.configure(text="❌ 請填寫名稱，且單價須為純數字！", text_color="red")
+            return
+
+        success, msg = database.add_service(name, int(price))
+        if success:
+            self.lbl_msg_service.configure(text=msg, text_color="green")
+            self.entry_service_name.delete(0, 'end')
+            self.entry_service_price.delete(0, 'end')
+            self.refresh_services_list() # 成功後刷新表格
+        else:
+            self.lbl_msg_service.configure(text=msg, text_color="red")
+
+    def refresh_services_list(self):
+        """從資料庫撈取價目表並畫在畫面上"""
+        for widget in self.table_frame_services.winfo_children():
+            widget.destroy()
+
+        # 1. 畫標題
+        headers = ["項目 ID", "維修項目名稱", "預設單價 ($)", "操作"]
+        for i, text in enumerate(headers):
+            lbl = ctk.CTkLabel(self.table_frame_services, text=text, font=ctk.CTkFont(weight="bold"))
+            lbl.grid(row=0, column=i, sticky="w", padx=20, pady=5)
+            self.table_frame_services.grid_columnconfigure(i, weight=1)
+
+        # 2. 畫資料
+        services = database.get_all_services()
+        for row_idx, service in enumerate(services, start=1):
+            s_id, name, price = service
+
+            ctk.CTkLabel(self.table_frame_services, text=str(s_id)).grid(row=row_idx, column=0, sticky="w", padx=20, pady=5)
+            ctk.CTkLabel(self.table_frame_services, text=name).grid(row=row_idx, column=1, sticky="w", padx=20, pady=5)
+            ctk.CTkLabel(self.table_frame_services, text=f"${price}").grid(row=row_idx, column=2, sticky="w", padx=20, pady=5)
+
+            # 刪除按鈕
+            btn_delete = ctk.CTkButton(
+                self.table_frame_services, text="🗑️ 刪除", width=60, fg_color="darkred", hover_color="red",
+                command=lambda sid=s_id: self.delete_service_action(sid)
+            )
+            btn_delete.grid(row=row_idx, column=3, padx=10, pady=2)
+
+    def delete_service_action(self, service_id):
+        """按下刪除項目的動作"""
+        database.delete_service(service_id)
+        self.refresh_services_list()
 
 if __name__ == "__main__":
     app = App()
