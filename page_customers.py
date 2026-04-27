@@ -16,7 +16,7 @@ class CustomersPage(ctk.CTkFrame):
     def setup_ui(self):
         """專門負責畫出客戶信息頁面的介面"""
         # --- 上半部：輸入表單 ---
-        ctk.CTkLabel(self, text="🚗 客戶與車輛登錄", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(20, 10))
+        ctk.CTkLabel(self, text="🚗 客戶與車輛登錄", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(20, 10))
 
         form_frame = ctk.CTkFrame(self)
         form_frame.pack(pady=10, padx=20, fill="x")
@@ -36,7 +36,7 @@ class CustomersPage(ctk.CTkFrame):
         self.entry_model = ctk.CTkEntry(form_frame, placeholder_text="車款 (例: Altis)")
         self.entry_model.grid(row=1, column=1, padx=10, pady=10)
 
-        self.btn_save_car = ctk.CTkButton(form_frame, text="➕ 儲存資料", fg_color="green", hover_color="darkgreen", command=self.save_vehicle)
+        self.btn_save_car = ctk.CTkButton(form_frame, text="➕ 儲存資料", font=ctk.CTkFont(size=14), fg_color="green", hover_color="darkgreen", command=self.save_vehicle)
         self.btn_save_car.grid(row=1, column=2, padx=10, pady=10)
 
         self.lbl_message = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=14))
@@ -50,7 +50,7 @@ class CustomersPage(ctk.CTkFrame):
         search_frame_c = ctk.CTkFrame(self, fg_color="transparent")
         search_frame_c.pack(fill="x", padx=20, pady=5)
 
-        ctk.CTkLabel(search_frame_c, text="📋 已登錄車輛列表", font=ctk.CTkFont(size=16, weight="bold")).pack(side="left")
+        ctk.CTkLabel(search_frame_c, text="📋 已登錄車輛列表", font=ctk.CTkFont(size=18, weight="bold")).pack(side="left")
 
         self.entry_search_customer = ctk.CTkEntry(search_frame_c, placeholder_text="搜車牌/車主/電話...", width=180)
         self.entry_search_customer.pack(side="left", padx=(20, 10))
@@ -167,7 +167,7 @@ class CustomersPage(ctk.CTkFrame):
         # 2. 標題列多加一個「操作」欄位
         headers = ["車牌號碼", "車主姓名", "聯絡電話", "品牌", "車型", "操作"]
         for i, text in enumerate(headers):
-            lbl = ctk.CTkLabel(self.table_frame_customer, text=text, font=ctk.CTkFont(weight="bold"))
+            lbl = ctk.CTkLabel(self.table_frame_customer, text=text, font=ctk.CTkFont(size=14, weight="bold"))
             lbl.grid(row=0, column=i, sticky="w", padx=20, pady=5)
             self.table_frame_customer.grid_columnconfigure(i, weight=1)
 
@@ -186,19 +186,19 @@ class CustomersPage(ctk.CTkFrame):
             # 畫出文字資料
             for col_idx, value in enumerate(vehicle):
                 display_text = str(value) if value else "-"
-                lbl = ctk.CTkLabel(self.table_frame_customer, text=display_text)
+                lbl = ctk.CTkLabel(self.table_frame_customer, text=display_text, font=ctk.CTkFont(size=14))
                 lbl.grid(row=row_idx, column=col_idx, sticky="w", padx=20, pady=5)
             
             action_frame = ctk.CTkFrame(self.table_frame_customer, fg_color="transparent")
             action_frame.grid(row=row_idx, column=5, padx=10, pady=2, sticky="w")
 
             # 編輯按鈕
-            btn_edit = ctk.CTkButton(action_frame, text="✏️ 修改", width=50, fg_color="#F39C12", hover_color="#D68910",
+            btn_edit = ctk.CTkButton(action_frame, text="✏️ 修改", width=60, font=ctk.CTkFont(size=14), fg_color="#F39C12", hover_color="#D68910",
                                      command=lambda p=plate, o=owner, ph=phone, b=brand, m=model: self.open_edit_popup(p, o, ph, b, m))
             btn_edit.pack(side="left", padx=(0, 5))
 
             # 刪除按鈕
-            btn_delete = ctk.CTkButton(action_frame, text="🗑️ 刪除", width=50, fg_color="darkred", hover_color="red",
+            btn_delete = ctk.CTkButton(action_frame, text="🗑️ 刪除", width=60, font=ctk.CTkFont(size=14), fg_color="darkred", hover_color="red",
                                         command=lambda p=plate: self.delete_car_action(p))
             btn_delete.pack(side="left")
     

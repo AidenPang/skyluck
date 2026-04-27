@@ -66,7 +66,56 @@ def init_db():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Vehicle_Master (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            brand TEXT NOT NULL,
+            model TEXT NOT NULL,
+            year TEXT NOT NULL,
+            UNIQUE(brand, model, year)
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Part_Compatibility (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            part_id INTEGER,
+            brand TEXT NOT NULL,
+            model TEXT NOT NULL,
+            year TEXT NOT NULL DEFAULT '通用',
+            FOREIGN KEY (part_id) REFERENCES Inventory(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # 🌟 自動升級舊資料庫，防呆機制（如果是已經建立的資料庫，會自動補上 year 欄位）
+    try:
+        cursor.execute('ALTER TABLE Part_Compatibility ADD COLUMN year TEXT NOT NULL DEFAULT "通用"')
+    except Exception:
+        pass
+
     # ================= 2. 播種區 (Seeding Data) =================
+    # 🌟 NEW: 幫車型主檔加入一些預設的測試車款
+    cursor.execute('SELECT COUNT(*) FROM Vehicle_Master')
+    if cursor.fetchone()[0] == 0:
+        default_vehicles = [
+            ('TOYOTA', 'ALTIS', '2020'),
+            ('TOYOTA', 'ALTIS', '2021'),
+            ('TOYOTA', 'ALTIS', '2022'),
+            ('TOYOTA', 'RAV4', '2021'),
+            ('TOYOTA', 'RAV4', '2022'),
+            ('TOYOTA', 'COROLLA CROSS', '2022'),
+            ('TOYOTA', 'COROLLA CROSS', '2023'),
+            ('HONDA', 'CR-V', '2020'),
+            ('HONDA', 'CR-V', '2023'),
+            ('HONDA', 'HR-V', '2022'),
+            ('NISSAN', 'KICKS', '2021'),
+            ('NISSAN', 'SENTRA', '2022'),
+            ('FORD', 'FOCUS', '2020'),
+            ('FORD', 'KUGA', '2021'),
+            ('MAZDA', 'MAZDA3', '2019'),
+            ('MAZDA', 'CX-5', '2022'),
+        ]
+        cursor.executemany('INSERT INTO Vehicle_Master (brand, model, year) VALUES (?, ?, ?)', default_vehicles)
+
     cursor.execute('SELECT COUNT(*) FROM Services')
     if cursor.fetchone()[0] == 0:
         default_services = [
@@ -161,9 +210,15 @@ def add_repair_order(plate_number, date, mileage, items_list):
     try:
         cursor.execute('SELECT id FROM Vehicles WHERE plate_number = ?', (plate_number,))
         vehicle = cursor.fetchone()
-        if not vehicle: return False, "找不到此車牌！"
+        if not vehicle: 
+            # 🌟 如果是不在資料庫的車牌（一次性客），就自動幫他建檔為「散客」
+            cursor.execute('INSERT INTO Vehicles (plate_number, owner_name, phone, brand, model) VALUES (?, ?, ?, ?, ?)', (plate_number, '散客', '', '', ''))
+            vehicle_id = cursor.lastrowid
+        else:
+            vehicle_id = vehicle[0]
+            
         total_amount = sum(item["qty"] * item["price"] for item in items_list)
-        cursor.execute('INSERT INTO Repair_Orders (vehicle_id, date, mileage, total_amount, notes) VALUES (?, ?, ?, ?, ?)', (vehicle[0], date, mileage, total_amount, ""))
+        cursor.execute('INSERT INTO Repair_Orders (vehicle_id, date, mileage, total_amount, notes) VALUES (?, ?, ?, ?, ?)', (vehicle_id, date, mileage, total_amount, ""))
         order_id = cursor.lastrowid 
         for item in items_list:
             subtotal = item["qty"] * item["price"]
@@ -209,9 +264,15 @@ def update_repair_order(order_id, plate_number, date, mileage, items_list):
     try:
         cursor.execute('SELECT id FROM Vehicles WHERE plate_number = ?', (plate_number,))
         vehicle = cursor.fetchone()
-        if not vehicle: return False, "找不到此車牌！"
+        if not vehicle:
+            # 🌟 修改工單時也套用同樣的自動建檔邏輯
+            cursor.execute('INSERT INTO Vehicles (plate_number, owner_name, phone, brand, model) VALUES (?, ?, ?, ?, ?)', (plate_number, '散客', '', '', ''))
+            vehicle_id = cursor.lastrowid
+        else:
+            vehicle_id = vehicle[0]
+            
         total_amount = sum(item["qty"] * item["price"] for item in items_list)
-        cursor.execute('UPDATE Repair_Orders SET vehicle_id = ?, date = ?, mileage = ?, total_amount = ? WHERE id = ?', (vehicle[0], date, mileage, total_amount, order_id))
+        cursor.execute('UPDATE Repair_Orders SET vehicle_id = ?, date = ?, mileage = ?, total_amount = ? WHERE id = ?', (vehicle_id, date, mileage, total_amount, order_id))
         cursor.execute('DELETE FROM Order_Items WHERE order_id = ?', (order_id,))
         for item in items_list:
             subtotal = item["qty"] * item["price"]
@@ -291,6 +352,53 @@ def restock_inventory(part_id, added_qty):
 def delete_inventory(part_id):
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
     cursor.execute('DELETE FROM Inventory WHERE id = ?', (part_id,)); conn.commit(); conn.close()
+
+# ================= 🔗 Phase 6：車型主檔與適配查詢 =================
+def add_vehicle_model(brand, model, year):
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    try:
+        cursor.execute('INSERT INTO Vehicle_Master (brand, model, year) VALUES (?, ?, ?)', (brand.upper(), model.upper(), year))
+        conn.commit(); return True, "✅ 車型已加入主檔！"
+    except sqlite3.IntegrityError: return False, "❌ 此車型年份已存在！"
+    finally: conn.close()
+
+def get_all_brands():
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute('SELECT DISTINCT brand FROM Vehicle_Master ORDER BY brand')
+    rows = cursor.fetchall(); conn.close()
+    return [r[0] for r in rows]
+
+def get_models_by_brand(brand):
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute('SELECT model, year FROM Vehicle_Master WHERE brand = ?', (brand,))
+    rows = cursor.fetchall(); conn.close()
+    return rows
+
+def set_part_compatibility(part_id, brand, model, year, is_universal=False):
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    try:
+        # 🌟 絕招：如果是通用的，就把品牌、車型與年份全部設定為「通用」
+        if is_universal: brand, model, year = "通用", "通用", "通用"
+        
+        cursor.execute('SELECT id FROM Part_Compatibility WHERE part_id=? AND brand=? AND model=? AND year=?', (part_id, brand, model, year))
+        if cursor.fetchone(): return False, "這個設定已經存在囉！"
+        
+        cursor.execute('INSERT INTO Part_Compatibility (part_id, brand, model, year) VALUES (?, ?, ?, ?)', (part_id, brand, model, year))
+        conn.commit(); return True, "✅ 適配設定成功！"
+    except Exception as e: return False, f"❌ 錯誤: {e}"
+    finally: conn.close()
+
+def get_fit_parts(brand, model, year, category):
+    """🌟 智慧抓取：同時找出『專車專用』與『全車系通用』的零件"""
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute('''
+        SELECT i.part_name, i.stock_qty, i.unit, i.sell_price, c.brand 
+        FROM Inventory i
+        JOIN Part_Compatibility c ON i.id = c.part_id
+        WHERE i.category = ? AND ((c.brand = ? AND c.model = ? AND (c.year = ? OR c.year = '通用' OR c.year = '')) OR c.brand = '通用')
+    ''', (category, brand, model, year))
+    rows = cursor.fetchall(); conn.close()
+    return rows
 
 if __name__ == "__main__":
     init_db()

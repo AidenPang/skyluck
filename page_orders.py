@@ -77,19 +77,18 @@ class OrdersPage(ctk.CTkFrame):
         item_frame = ctk.CTkFrame(self.order_popup)
         item_frame.pack(fill="x", padx=20, pady=5)
 
+        self.services_data = {s[1]: {"price": s[2], "unit": "次"} for s in database.get_all_services()}
+        self.inventory_data = database.get_all_inventory()
+
         # 🌟 1. 新增：大分類下拉選單
         self.combo_item_cat = ctk.CTkComboBox(item_frame, values=["🛠️ 服務工資", "油品", "耗材", "輪胎", "電瓶", "其他"], width=100, command=self.change_category)
         self.combo_item_cat.grid(row=0, column=0, padx=(10, 5), pady=10)
 
         # 🌟 2. 改良：同時抓取「工資」與「實體庫存」，準備給後面的智慧選單過濾用
-        self.services_data = {s[1]: {"price": s[2], "unit": "次"} for s in database.get_all_services()}
-        self.inventory_data = database.get_all_inventory() # 抓取庫存所有品牌零件
+        self.combo_item_name = ctk.CTkComboBox(item_frame, values=[], width=150, command=self.auto_fill_price)
+        self.combo_item_name.grid(row=0, column=1, padx=5, pady=10)
+        self.combo_item_name.set("") # 預設留白
         
-        self.entry_item_name = ctk.CTkEntry(item_frame, placeholder_text="輸入名稱或品牌", width=150)
-        self.entry_item_name.grid(row=0, column=1, padx=5, pady=10)
-        self.entry_item_name.bind("<KeyRelease>", self.show_item_dropdown)
-        self.item_dropdown_frame = ctk.CTkScrollableFrame(self.order_popup, height=120)
-
         self.entry_item_qty = ctk.CTkEntry(item_frame, placeholder_text="數量", width=50)
         self.entry_item_qty.grid(row=0, column=2, padx=5, pady=10)
         
@@ -175,10 +174,21 @@ class OrdersPage(ctk.CTkFrame):
         self.plate_dropdown_frame.place_forget()       # 收合選單
     
     def change_category(self, choice):
-        """🌟 當老闆切換大分類 (例如切到『油品』) 時，清空後面的輸入框"""
-        self.entry_item_name.delete(0, 'end')
+        """🌟 連動邏輯：根據分類自動更新『項目名稱』選單內容"""
+        # 1. 找出符合分類的名稱清單
+        if choice == "🛠️ 服務工資":
+            new_values = list(self.services_data.keys())
+        else:
+            # 從庫存中過濾出分類相符的品牌名稱 (item[2]是分類, item[1]是名稱)
+            new_values = [item[1] for item in self.inventory_data if item[2] == choice]
+        
+        # 2. 更新下拉選單的選項
+        self.combo_item_name.configure(values=new_values)
+        self.combo_item_name.set("") # 清空目前的選擇
+        
+        # 3. 清空價格與單位輸入框
         self.entry_item_price.delete(0, 'end')
-        self.item_dropdown_frame.place_forget()
+        self.combo_item_unit.set("pc")
 
     def show_item_dropdown(self, event):
         """🌟 根據『大分類』與『打字內容』來精準過濾選單"""
@@ -238,7 +248,7 @@ class OrdersPage(ctk.CTkFrame):
 
     def add_to_cart(self):
         """把項目加入彈出視窗的暫存購物車"""
-        name = self.entry_item_name.get().strip()
+        name = self.combo_item_name.get().strip()
         qty = self.entry_item_qty.get().strip()
         unit = self.combo_item_unit.get()
         price = self.entry_item_price.get().strip()
@@ -252,7 +262,7 @@ class OrdersPage(ctk.CTkFrame):
         self.current_order_items.append(item_data)
 
         # 清空輸入框
-        self.entry_item_name.delete(0, 'end')
+        self.combo_item_name.set("")
         self.entry_item_qty.delete(0, 'end')
         self.entry_item_price.delete(0, 'end')
 
@@ -293,8 +303,7 @@ class OrdersPage(ctk.CTkFrame):
         item = self.current_order_items[index]
         
         # 2. 將資料一一填回上方的輸入框
-        self.entry_item_name.delete(0, 'end')
-        self.entry_item_name.insert(0, item['name'])
+        self.combo_item_name.set(item['name'])
         
         self.entry_item_qty.delete(0, 'end')
         self.entry_item_qty.insert(0, str(item['qty']))
@@ -312,6 +321,10 @@ class OrdersPage(ctk.CTkFrame):
         date = self.entry_date.get()
         plate = self.entry_search_plate.get().strip().upper()
         mileage = self.entry_mileage.get().strip()
+
+        if not plate:
+            self.lbl_msg_order.configure(text="❌ 請輸入車牌！", text_color="red")
+            return
 
         if mileage != "" and not mileage.isdigit():
             self.lbl_msg_order.configure(text="❌ 里程數必須是純數字！", text_color="red")
